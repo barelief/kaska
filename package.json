@@ -1,0 +1,13 @@
+{
+  "name": "kaska",
+  "version": "1.0.0",
+  "description": "Kaśka — local HTTP proxy bridging the browser GUI to a real Cassandra cluster",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node dev.js"
+  },
+  "dependencies": {
+    "cassandra-driver": "^4.7.2"
+  }
+}

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kaśka</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<style>
+  /* ── theme tokens ────────────────────────────────────────────────── */
+  :root {
+    --bg:    #f6f8fa; --bg2: #ffffff; --bg3: #f1f3f5;
+    --bd:    #d0d7de; --bd2: #afb8c1;
+    --tx:    #1f2328; --tx2: #656d76; --tx3: #9ba1a8;
+    --gr:    #1D9E75; --gr2: #0F6E56;
+    --bl-bg: #ddf4ff; --bl-tx: #0550ae;
+    --rd:    #cf222e; --rd-bg: #FFEBE9;
+  }
+  html.dark {
+    --bg:    #0e1117; --bg2: #161b22; --bg3: #21262d;
+    --bd:    #30363d; --bd2: #484f58;
+    --tx:    #e6edf3; --tx2: #8b949e; --tx3: #555d68;
+    --gr:    #1D9E75; --gr2: #0F6E56;
+    --bl-bg: #1c2d47; --bl-tx: #58a6ff;
+    --rd:    #f85149; --rd-bg: #3d1c1c;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'JetBrains Mono','Fira Code',ui-monospace,monospace;
+         background: var(--bg); color: var(--tx); font-size: 13px; }
+  input, textarea, button { font-family: inherit; }
+  input:focus, textarea:focus { border-color: var(--gr) !important; outline: none; }
+
+  /* scrollbars */
+  .scr::-webkit-scrollbar       { width: 4px; height: 4px; }
+  .scr::-webkit-scrollbar-track { background: transparent; }
+  .scr::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 2px; }
+
+  /* resize handle */
+  #rhandle { width: 5px; flex-shrink: 0; cursor: col-resize;
+             border-right: 1px solid var(--bd); transition: background .15s, border-color .15s; }
+  #rhandle:hover, #rhandle.drag { background: rgba(29,158,117,.2); border-color: var(--gr); }
+
+  /* status dot */
+  #sdot { width: 7px; height: 7px; border-radius: 50%; background: var(--bd2); flex-shrink: 0; }
+  #sdot.on  { background: var(--gr); box-shadow: 0 0 0 2px rgba(29,158,117,.25); }
+  #sdot.err { background: var(--rd); }
+
+  /* tree */
+  .ks-lbl { padding: 10px 12px 3px; font-size: 10px; text-transform: uppercase;
+            letter-spacing: .1em; color: var(--tx3); font-weight: 600; }
+  .tbl-item { padding: 5px 12px 5px 20px; font-size: 12px; cursor: pointer;
+              color: var(--tx2); display: flex; align-items: center; gap: 6px; user-select: none; }
+  .tbl-item:hover  { background: var(--bg3); color: var(--tx); }
+  .tbl-item.active { background: rgba(29,158,117,.12); color: var(--gr); border-right: 2px solid var(--gr); }
+  .tbl-icon { font-size: 9px; opacity: .5; }
+
+  /* tabs */
+  .tab { color: var(--tx2); background: transparent; border-color: transparent; transition: background .1s, color .1s; }
+  .tab:hover { color: var(--tx); background: var(--bg3); }
+  .tab.on    { color: var(--tx);  background: var(--bg3); border-color: var(--bd); }
+
+  /* data table */
+  .dt { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .dt th { padding: 7px 10px; text-align: left; font-size: 10px; font-weight: 600;
+           text-transform: uppercase; letter-spacing: .08em; color: var(--tx3);
+           border-bottom: 1px solid var(--bd); background: var(--bg2); white-space: nowrap; }
+  .dt td { padding: 6px 10px; border-bottom: 1px solid var(--bd); color: var(--tx);
+           max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  .dt tr:hover td { background: var(--bg2); }
+  .dt tr.sel   td { background: rgba(29,158,117,.08); }
+  .nv  { color: var(--tx3); font-style: italic; }
+  .bdg { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; vertical-align: middle; margin-left: 4px; }
+  .bdg.pk { background: rgba(29,158,117,.15); color: var(--gr);    border: 1px solid rgba(29,158,117,.3); }
+  .bdg.ck { background: var(--bl-bg);         color: var(--bl-tx); border: 1px solid var(--bl-tx); }
+
+  /* row action buttons */
+  .mbtn { font-size: 10px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--bd);
+          background: transparent; cursor: pointer; color: var(--tx2); }
+  .mbtn:hover   { background: var(--bg3);   color: var(--tx); border-color: var(--bd2); }
+  .mbtn.d:hover { background: var(--rd-bg); color: var(--rd); }
+
+  /* CQL editor */
+  .cql { width: 100%; height: 110px; padding: 10px; border: 1px solid var(--bd);
+         border-radius: 6px; background: var(--bg2); color: var(--tx);
+         resize: vertical; line-height: 1.6; font-size: 12px; }
+  .qmsg     { font-size: 11px; color: var(--tx2); }
+  .qmsg.ok  { color: var(--gr); }
+  .qmsg.err { color: var(--rd); }
+
+  /* schema highlight */
+  .kw { color: #ff7b72; }
+  .ty { color: var(--bl-tx); }
+  .schema-pre { margin-top: 14px; padding: 12px 14px; background: var(--bg2);
+                border: 1px solid var(--bd); border-radius: 6px; font-size: 11px;
+                color: var(--tx2); line-height: 1.8; white-space: pre-wrap; }
+
+  /* modal fields */
+  .flbl { font-size: 11px; color: var(--tx2); display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+  .finp { width: 100%; font-size: 12px; padding: 6px 8px; border: 1px solid var(--bd);
+          border-radius: 6px; background: var(--bg3); color: var(--tx); }
+  .finp[readonly] { opacity: .45; cursor: not-allowed; }
+
+  /* misc */
+  .empty { padding: 40px; text-align: center; color: var(--tx3); font-size: 12px; line-height: 2; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--bd);
+          border-top-color: var(--gr); border-radius: 50%; animation: spin .6s linear infinite; }
+</style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col">
+
+<!-- topbar -->
+<header class="flex items-center gap-2 px-3 py-2 border-b flex-shrink-0"
+        style="background:var(--bg2);border-color:var(--bd)">
+  <span class="text-xs font-bold px-1.5 py-0.5 rounded text-white" style="background:var(--gr)">C*</span>
+  <span class="text-sm font-semibold">Kaśka</span>
+  <div class="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border"
+       style="border-color:var(--bd);color:var(--tx2)">
+    <div id="sdot"></div>
+    <span id="stxt">disconnected</span>
+  </div>
+  <div class="flex-1"></div>
+  <button id="themeBtn" onclick="toggleTheme()" title="Toggle theme"
+          class="text-xs px-2 py-1 rounded border cursor-pointer"
+          style="border-color:var(--bd);color:var(--tx2);background:transparent">☀️</button>
+  <button id="btn-ins" onclick="openInsert()"
+          class="text-xs px-2 py-1 rounded border cursor-pointer"
+          style="display:none;background:var(--gr);border-color:var(--gr2);color:#fff">+ insert row</button>
+</header>
+
+<!-- layout -->
+<div class="flex flex-1 overflow-hidden">
+
+  <!-- sidebar -->
+  <aside id="sidebar" class="flex flex-col flex-shrink-0 overflow-hidden"
+         style="width:280px;background:var(--bg2)">
+
+    <div class="flex flex-col gap-1.5 p-2 border-b" style="border-color:var(--bd)">
+      <div class="flex gap-1">
+        <input id="hostInput" placeholder="host" value="127.0.0.1"
+               class="flex-[2] text-xs px-2 py-1.5 rounded border"
+               style="background:var(--bg3);border-color:var(--bd);color:var(--tx)" />
+        <input id="portInput" placeholder="port" value="4000"
+               class="w-14 text-xs px-2 py-1.5 rounded border"
+               style="background:var(--bg3);border-color:var(--bd);color:var(--tx)" />
+      </div>
+      <div class="flex gap-1">
+        <input id="userInput" placeholder="username (opt)"
+               class="flex-1 text-xs px-2 py-1.5 rounded border"
+               style="background:var(--bg3);border-color:var(--bd);color:var(--tx)" />
+        <input id="passInput" placeholder="password (opt)" type="password"
+               class="flex-1 text-xs px-2 py-1.5 rounded border"
+               style="background:var(--bg3);border-color:var(--bd);color:var(--tx)" />
+      </div>
+      <div class="flex gap-1">
+        <input id="dcInput" placeholder="localDataCenter" value="datacenter1"
+               class="flex-1 text-xs px-2 py-1.5 rounded border"
+               style="background:var(--bg3);border-color:var(--bd);color:var(--tx)" />
+        <button id="connBtn" onclick="toggleConnect()"
+                class="text-xs px-2.5 py-1.5 rounded border cursor-pointer whitespace-nowrap"
+                style="background:var(--bg3);border-color:var(--bd);color:var(--tx2)">connect</button>
+      </div>
+    </div>
+
+    <div id="tree" class="flex-1 overflow-y-auto scr py-1">
+      <div class="empty">not connected</div>
+    </div>
+  </aside>
+
+  <!-- resize handle -->
+  <div id="rhandle"></div>
+
+  <!-- main -->
+  <main class="flex flex-col flex-1 overflow-hidden" style="background:var(--bg)">
+    <div class="flex items-center gap-1 px-3 py-2 border-b flex-shrink-0 flex-wrap"
+         style="background:var(--bg2);border-color:var(--bd)">
+      <button class="tab on text-xs px-2.5 py-1 rounded border cursor-pointer" id="tab-browse" onclick="switchTab('browse',this)">browse</button>
+      <button class="tab    text-xs px-2.5 py-1 rounded border cursor-pointer" id="tab-query"  onclick="switchTab('query',this)">CQL editor</button>
+      <button class="tab    text-xs px-2.5 py-1 rounded border cursor-pointer" id="tab-schema" onclick="switchTab('schema',this)">schema</button>
+    </div>
+    <div id="content" class="flex-1 overflow-auto p-3.5 scr">
+      <div class="empty">connect to Cassandra, then select a table</div>
+    </div>
+    <div id="infobar" class="text-xs px-3 py-1 border-t flex-shrink-0"
+         style="background:var(--bg2);border-color:var(--bd);color:var(--tx3)">ready</div>
+  </main>
+</div>
+
+<!-- modal -->
+<div id="modalBg" style="display:none;background:rgba(0,0,0,.6)"
+     class="fixed inset-0 z-50 flex items-center justify-center"
+     onclick="if(event.target===this)closeModal()">
+  <div class="rounded-xl p-5 w-96 max-h-[80vh] overflow-y-auto scr flex flex-col gap-3"
+       style="background:var(--bg2);border:1px solid var(--bd2)">
+    <div id="modalTitle" class="text-sm font-semibold">insert row</div>
+    <div id="modalFields" class="flex flex-col gap-2"></div>
+    <div class="flex gap-2 justify-end pt-1">
+      <button onclick="closeModal()" class="text-xs px-3 py-1.5 rounded border cursor-pointer"
+              style="border-color:var(--bd);color:var(--tx2);background:transparent">cancel</button>
+      <button onclick="modalSave()" id="modalSaveBtn" class="text-xs px-3 py-1.5 rounded border cursor-pointer"
+              style="background:var(--gr);border-color:var(--gr2);color:#fff">insert</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROXY = 'http://localhost:8765';
+let connected = false, activeKS = null, activeTable = null;
+let currentSchema = [], currentRows = [], editIdx = null, currentTab = 'browse';
+
+// ── theme ─────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const dark = document.documentElement.classList.toggle('dark');
+  document.getElementById('themeBtn').textContent = dark ? '☀️' : '🌙';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+(function () {
+  if (localStorage.getItem('theme') === 'light') {
+    document.documentElement.classList.remove('dark');
+    document.getElementById('themeBtn').textContent = '🌙';
+  }
+})();
+
+// ── sidebar resize ────────────────────────────────────────────────────────────
+(function () {
+  try {
+    const h = document.getElementById('rhandle'), s = document.getElementById('sidebar');
+    if (!h || !s) return;
+    let drag = false, sx, sw;
+    h.addEventListener('mousedown', e => {
+      drag = true; sx = e.clientX; sw = s.offsetWidth;
+      h.classList.add('drag');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', e => {
+      if (!drag) return;
+      s.style.width = Math.max(180, Math.min(600, sw + e.clientX - sx)) + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      drag = false; h.classList.remove('drag');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+  } catch(e) { console.warn('resize init failed:', e); }
+})();
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const r = await fetch(PROXY + path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return r.json();
+}
+const GET  = p      => api('GET',  p);
+const POST = (p, b) => api('POST', p, b);
+
+// ── connect ───────────────────────────────────────────────────────────────────
+async function toggleConnect() {
+  const btn = document.getElementById('connBtn');
+  if (!connected) {
+    setInfo('connecting…');
+    try {
+      const r = await POST('/connect', {
+        host: document.getElementById('hostInput').value || '127.0.0.1',
+        port: parseInt(document.getElementById('portInput').value || '4000'),
+        localDataCenter: document.getElementById('dcInput').value || 'datacenter1',
+        username: document.getElementById('userInput').value || undefined,
+        password: document.getElementById('passInput').value || undefined,
+      });
+      if (!r.ok) throw new Error(r.error);
+      connected = true;
+      setDot('on'); setInfo(r.message);
+      document.getElementById('stxt').textContent = 'connected';
+      btn.textContent = 'disconnect';
+      btn.style.cssText += ';background:var(--gr);border-color:var(--gr2);color:#fff';
+      loadKeyspaces();
+    } catch (e) {
+      setDot('err');
+      setInfo('⚠ ' + e.message);
+      console.error('connect error:', e);
+    }
+  } else {
+    await POST('/disconnect');
+    connected = false; activeKS = null; activeTable = null;
+    setDot(''); setInfo('disconnected');
+    document.getElementById('stxt').textContent = 'disconnected';
+    btn.textContent = 'connect';
+    btn.style.cssText += ';background:var(--bg3);border-color:var(--bd);color:var(--tx2)';
+    document.getElementById('tree').innerHTML = '<div class="empty">not connected</div>';
+    document.getElementById('content').innerHTML = '<div class="empty">connect to Cassandra, then select a table</div>';
+    document.getElementById('btn-ins').style.display = 'none';
+  }
+}
+
+function setDot(cls) { document.getElementById('sdot').className = cls; }
+function setInfo(msg) { document.getElementById('infobar').innerHTML = msg; }
+
+// ── keyspaces ─────────────────────────────────────────────────────────────────
+async function loadKeyspaces() {
+  const tree = document.getElementById('tree');
+  tree.innerHTML = '<div class="empty"><div class="spin"></div></div>';
+  const r = await GET('/keyspaces');
+  if (r.error) { tree.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  const SYS = ['system','system_auth','system_distributed','system_schema','system_traces'];
+  const user = r.keyspaces.filter(k => !SYS.includes(k));
+  const sys  = r.keyspaces.filter(k =>  SYS.includes(k));
+  let h = '';
+  if (user.length) { h += '<div class="ks-lbl">keyspaces</div>'; user.forEach(k => h += ksHtml(k)); }
+  h += '<div class="ks-lbl">system</div>';
+  sys.forEach(k => h += ksHtml(k));
+  tree.innerHTML = h;
+}
+
+function ksHtml(ks) {
+  return `<div class="ks-lbl" style="padding-top:6px;cursor:pointer" onclick="loadTables('${ks}',this)">▶ ${ks}</div>
+          <div id="sub-${ks}"></div>`;
+}
+
+async function loadTables(ks, el) {
+  const sub = document.getElementById('sub-' + ks);
+  if (sub.innerHTML) { sub.innerHTML = ''; el.innerHTML = `▶ ${ks}`; return; }
+  el.innerHTML = `<span class="spin"></span> ${ks}`;
+  const r = await GET('/tables?keyspace=' + ks);
+  el.innerHTML = `▼ ${ks}`;
+  if (r.error || !r.tables.length) {
+    sub.innerHTML = `<div style="padding:4px 20px;font-size:11px;color:var(--tx3)">no tables</div>`; return;
+  }
+  sub.innerHTML = r.tables.map(t =>
+    `<div class="tbl-item${ks + '.' + t === activeTable ? ' active' : ''}" id="ti-${ks}-${t}" onclick="selectTable('${ks}','${t}')">
+       <span class="tbl-icon">▶</span>${t}</div>`
+  ).join('');
+}
+
+async function selectTable(ks, tbl) {
+  if (activeTable) {
+    const [ok, ot] = activeTable.split('.');
+    document.getElementById('ti-' + ok + '-' + ot)?.classList.remove('active');
+  }
+  activeKS = ks; activeTable = ks + '.' + tbl;
+  document.getElementById('ti-' + ks + '-' + tbl)?.classList.add('active');
+  document.getElementById('btn-ins').style.display = '';
+  await loadSchema();
+  if (currentTab === 'browse') loadBrowse();
+  else if (currentTab === 'schema') renderSchemaTab();
+}
+
+// ── schema ────────────────────────────────────────────────────────────────────
+async function loadSchema() {
+  if (!activeTable) return;
+  const [ks, tbl] = activeTable.split('.');
+  const r = await GET(`/schema?keyspace=${ks}&table=${tbl}`);
+  currentSchema = r.columns || [];
+}
+
+// ── browse ────────────────────────────────────────────────────────────────────
+async function loadBrowse() {
+  const c = document.getElementById('content');
+  if (!activeTable) { c.innerHTML = '<div class="empty">select a table</div>'; return; }
+  const [ks, tbl] = activeTable.split('.');
+  c.innerHTML = '<div class="empty"><div class="spin"></div> loading rows…</div>';
+  const r = await GET(`/rows?keyspace=${ks}&table=${tbl}&limit=200`);
+  if (r.error) { setInfo('error: ' + r.error); c.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  currentRows = r.rows || [];
+  setInfo(`${activeTable} — ${currentRows.length} rows`);
+  renderBrowse();
+}
+
+function renderBrowse() {
+  if (!currentSchema.length) { document.getElementById('content').innerHTML = '<div class="empty">no schema</div>'; return; }
+  let h = `<table class="dt"><thead><tr>`;
+  currentSchema.forEach(col => {
+    h += `<th>${col.name}`;
+    if (col.pk) h += `<span class="bdg pk">PK</span>`;
+    if (col.ck) h += `<span class="bdg ck">CK</span>`;
+    h += `</th>`;
+  });
+  h += `<th style="width:90px">actions</th></tr></thead><tbody>`;
+  if (!currentRows.length) {
+    h += `<tr><td colspan="${currentSchema.length + 1}" style="text-align:center;padding:30px;color:var(--tx3)">no rows</td></tr>`;
+  } else {
+    currentRows.forEach((row, i) => {
+      h += `<tr id="row-${i}" onclick="selRow(${i})">`;
+      currentSchema.forEach(col => {
+        const v = row[col.name];
+        h += `<td title="${v ?? ''}">${v != null ? v : '<span class="nv">null</span>'}</td>`;
+      });
+      h += `<td><div style="display:flex;gap:4px">
+        <button class="mbtn" onclick="event.stopPropagation();openEdit(${i})">edit</button>
+        <button class="mbtn d" onclick="event.stopPropagation();doDelete(${i})">del</button>
+      </div></td></tr>`;
+    });
+  }
+  h += `</tbody></table>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+function selRow(i) {
+  document.querySelectorAll('.dt tr').forEach(r => r.classList.remove('sel'));
+  document.getElementById('row-' + i)?.classList.add('sel');
+}
+
+// ── CQL editor ────────────────────────────────────────────────────────────────
+function loadQuery() {
+  document.getElementById('btn-ins').style.display = 'none';
+  const init = activeTable
+    ? `SELECT * FROM "${activeTable.split('.')[0]}"."${activeTable.split('.')[1]}" LIMIT 100;`
+    : '';
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px;height:100%">
+      <textarea class="cql" id="cqlInput" spellcheck="false"
+                placeholder="SELECT * FROM ks.table LIMIT 100;">${init}</textarea>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="runCQL()" class="text-xs px-3 py-1.5 rounded border cursor-pointer"
+                style="background:var(--gr);border-color:var(--gr2);color:#fff">▶ run</button>
+        <span id="qmsg" class="qmsg"></span>
+      </div>
+      <div id="qres" style="flex:1;overflow:auto"></div>
+    </div>`;
+  document.getElementById('cqlInput').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCQL();
+  });
+}
+
+async function runCQL() {
+  const cql = document.getElementById('cqlInput').value.trim();
+  const msg = document.getElementById('qmsg'), res = document.getElementById('qres');
+  if (!cql) { msg.textContent = 'empty query'; msg.className = 'qmsg err'; return; }
+  msg.innerHTML = '<span class="spin"></span>'; msg.className = 'qmsg';
+  const r = await POST('/query', { cql });
+  if (!r.ok) { msg.textContent = r.error; msg.className = 'qmsg err'; res.innerHTML = ''; return; }
+  msg.textContent = `${r.rowCount} rows · ${r.elapsed}ms`; msg.className = 'qmsg ok';
+  if (!r.rows.length) { res.innerHTML = '<div class="empty">query ok — 0 rows returned</div>'; return; }
+  let h = `<table class="dt"><thead><tr>${r.columns.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  r.rows.forEach(row => {
+    h += `<tr>${r.columns.map(c => `<td title="${row[c] ?? ''}">${row[c] != null ? row[c] : '<span class="nv">null</span>'}</td>`).join('')}</tr>`;
+  });
+  res.innerHTML = h + `</tbody></table>`;
+}
+
+// ── schema tab ────────────────────────────────────────────────────────────────
+function renderSchemaTab() {
+  document.getElementById('btn-ins').style.display = 'none';
+  if (!activeTable || !currentSchema.length) {
+    document.getElementById('content').innerHTML = '<div class="empty">select a table to view schema</div>';
+    return;
+  }
+  const pks = currentSchema.filter(c => c.pk).map(c => c.name);
+  const cks = currentSchema.filter(c => c.ck).map(c => c.name);
+  let h = `<table class="dt"><thead><tr><th>column</th><th>type</th><th>role</th></tr></thead><tbody>`;
+  currentSchema.forEach(col => {
+    const role = col.pk ? '<span class="bdg pk">partition key</span>'
+               : col.ck ? '<span class="bdg ck">clustering</span>'
+               : `<span style="color:var(--tx3);font-size:11px">regular</span>`;
+    h += `<tr><td>${col.name}</td><td>${col.type}</td><td>${role}</td></tr>`;
+  });
+  h += `</tbody></table>`;
+  const [ks, tbl] = activeTable.split('.');
+  const pkStr = pks.length > 1 ? `(${pks.join(', ')})` : pks[0] || 'id';
+  h += `<div class="schema-pre"><span class="kw">CREATE TABLE</span> ${ks}.${tbl} (\n${currentSchema.map(c => `  ${c.name} <span class="ty">${c.type}</span>,`).join('\n')}\n  <span class="kw">PRIMARY KEY</span> (${pkStr}${cks.length ? ', ' + cks.join(', ') : ''})\n);</div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+// ── tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  if (tab === 'browse')      { document.getElementById('btn-ins').style.display = activeTable ? '' : 'none'; loadBrowse(); }
+  else if (tab === 'query')  loadQuery();
+  else if (tab === 'schema') renderSchemaTab();
+}
+
+// ── modal ─────────────────────────────────────────────────────────────────────
+function openInsert() {
+  editIdx = null;
+  document.getElementById('modalTitle').textContent = 'insert row — ' + activeTable;
+  document.getElementById('modalSaveBtn').textContent = 'insert';
+  renderModalFields(null);
+  document.getElementById('modalBg').style.display = 'flex';
+}
+
+function openEdit(i) {
+  editIdx = i;
+  document.getElementById('modalTitle').textContent = 'edit row';
+  document.getElementById('modalSaveBtn').textContent = 'save';
+  renderModalFields(currentRows[i]);
+  document.getElementById('modalBg').style.display = 'flex';
+}
+
+function renderModalFields(row) {
+  document.getElementById('modalFields').innerHTML = currentSchema.map(col => `
+    <div>
+      <div class="flbl">${col.name} <span style="color:var(--tx3)">${col.type}</span>
+        ${col.pk ? '<span class="bdg pk">PK</span>' : ''}${col.ck ? '<span class="bdg ck">CK</span>' : ''}
+      </div>
+      <input class="finp" id="mf-${col.name}" value="${row ? (row[col.name] ?? '') : ''}"
+             placeholder="${col.type}" ${(col.pk || col.ck) && row !== null ? 'readonly' : ''} />
+    </div>`).join('');
+}
+
+function closeModal() { document.getElementById('modalBg').style.display = 'none'; }
+
+async function modalSave() {
+  const row = {};
+  currentSchema.forEach(col => { row[col.name] = document.getElementById('mf-' + col.name)?.value ?? ''; });
+  const [ks, tbl] = activeTable.split('.');
+  if (editIdx === null) {
+    const r = await POST('/insert', { keyspace: ks, table: tbl, row });
+    if (!r.ok) { setInfo('insert error: ' + r.error); return; }
+    setInfo('row inserted');
+  } else {
+    const pkColumns = currentSchema.filter(c => c.pk || c.ck).map(c => c.name);
+    const r = await POST('/update', { keyspace: ks, table: tbl, row, pkColumns });
+    if (!r.ok) { setInfo('update error: ' + r.error); return; }
+    setInfo('row updated');
+  }
+  closeModal();
+  await loadBrowse();
+}
+
+async function doDelete(i) {
+  if (!confirm('delete this row?')) return;
+  const pkColumns = currentSchema.filter(c => c.pk || c.ck).map(c => c.name);
+  const [ks, tbl] = activeTable.split('.');
+  const r = await POST('/delete', { keyspace: ks, table: tbl, row: currentRows[i], pkColumns });
+  if (!r.ok) { setInfo('delete error: ' + r.error); return; }
+  setInfo('row deleted');
+  await loadBrowse();
+}
+
+// ── auto-connect (when launched via `pnpm dev`) ───────────────────────────────
+if (new URLSearchParams(location.search).has('autoconnect')) {
+  toggleConnect();
+}
+</script>
+</body>
+</html>
