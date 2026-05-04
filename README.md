@@ -12,6 +12,16 @@ A lightweight browser GUI for Apache Cassandra.
 
 ## Usage
 
+### One-liner (no clone needed)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/barelief/kaska/main/run.sh | bash
+```
+
+Downloads the app into a temp directory, installs dependencies, and opens the browser automatically.
+
+### From source
+
 ```bash
 pnpm install
 pnpm dev       # starts the proxy and opens the browser
